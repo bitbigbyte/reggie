@@ -1,2 +1,2 @@
 # reggie
-reggie_takeaway
+> 本项目为瑞吉外卖项目
