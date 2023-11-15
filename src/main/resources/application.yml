@@ -27,6 +27,10 @@ spring:
         max-wait: 1ms
         max-idle: 4
         min-idle: 0
+  cache:
+    type: redis
+    redis:
+      time-to-live: 1800000
   mail:
     host: smtp.qq.com
     port: 587
