@@ -9,12 +9,15 @@ import com.xiaoke.utils.EmailUtils;
 import com.xiaoke.utils.ValidateCodeUtils;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.data.redis.core.RedisTemplate;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import javax.servlet.http.HttpSession;
 import java.util.Map;
+import java.util.Objects;
+import java.util.concurrent.TimeUnit;
 
 @RestController
 @Slf4j
@@ -25,6 +28,9 @@ public class UserController {
 
     @Autowired
     private EmailUtils emailUtils;
+
+    @Autowired
+    private RedisTemplate<String,Object> redisTemplate;
 
     @PostMapping("/sendMsg")
     public R<String> sendMsg(@RequestBody User user, HttpSession  session){
@@ -41,7 +47,10 @@ public class UserController {
         //发送短信
         //SMSUtils.sendMessage("阿里云短信测试","SMS_154950909",phone,code);
         //将生成的验证码保存
-        session.setAttribute(phone,code);
+        //session.setAttribute(phone,code);
+
+        //把生成的代码存储到Redis中，并且设置有效期为5分钟
+        redisTemplate.opsForValue().set(phone,code,5, TimeUnit.MINUTES);
 
         return R.success("验证码发送成功");
 
@@ -52,7 +61,7 @@ public class UserController {
         log.info(map.toString());
         String userPhone=map.get("phone");
         String userCode=map.get("code");
-        if(session.getAttribute(userPhone).equals(userCode)){
+        if(Objects.equals(redisTemplate.opsForValue().get(userPhone), userCode)){
             LambdaQueryWrapper<User> queryWrapper=new LambdaQueryWrapper<>();
             queryWrapper.eq(User::getPhone,userPhone);
             User user=userService.getOne(queryWrapper);
@@ -63,6 +72,9 @@ public class UserController {
                 userService.save(user);
             }
             session.setAttribute("user",user.getId());
+
+            redisTemplate.delete(userPhone);
+
             return R.success(user);
         }
         return R.error("验证码错误");
